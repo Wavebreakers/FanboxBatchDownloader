@@ -7,7 +7,7 @@
 // @require      https://cdnjs.cloudflare.com/ajax/libs/jszip/3.2.2/jszip.min.js
 // @require      https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.6/dat.gui.min.js
 // @match        https://*.fanbox.cc
-// @grant        GM_xmlHttpRequest
+// @grant        GM_xmlhttpRequest
 // @grant        GM_addStyle
 // @grant        unsafeWindow
 // @run-at       document-end
@@ -66,7 +66,7 @@
  *    增加当鼠标中键点击时手动打包
  **/
 
-/* global JSZip GM_xmlHttpRequest */
+/* global JSZip GM_xmlhttpRequest */
 ;(function() {
   'use strict'
   const apiReference = 'https://api.fanbox.cc';
@@ -323,7 +323,7 @@
 
   function gmRequireImage(url, index) {
     return new Promise((resolve, reject) =>
-      GM_xmlHttpRequest({
+      GM_xmlhttpRequest({
         method: 'GET',
         url,
         overrideMimeType: 'application/octet-stream',
@@ -339,7 +339,7 @@
           setProgress(amount)
         },
         onerror: () =>
-          GM_xmlHttpRequest({
+          GM_xmlhttpRequest({
             method: 'GET',
             url,
             overrideMimeType: 'application/octet-stream',
