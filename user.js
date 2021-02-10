@@ -6,8 +6,8 @@
 // @author       https://github.com/amarillys QQ 719862760
 // @require      https://cdnjs.cloudflare.com/ajax/libs/jszip/3.2.2/jszip.min.js
 // @require      https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.6/dat.gui.min.js
-// @match        https://www.pixiv.net/fanbox/creator/*
-// @grant        GM_xmlhttpRequest
+// @match        https://*.fanbox.cc
+// @grant        GM_xmlHttpRequest
 // @grant        GM_addStyle
 // @grant        unsafeWindow
 // @run-at       document-end
@@ -22,13 +22,13 @@
  *    Add text if exist in post
  *  > 200226
  *    Adapt to new Api! Add Error Tip!
- *    More frequentyle progress bar!
+ *    More frequently progress bar!
  *    More clearly status!
  *  > 200224
  *    More beautiful! UI Redesigned. --use dat.gui,
- *    Performence Improved. -- multi-thread supported.
+ *    Performance Improved. -- multi-thread supported.
  *  > 200222
- *    Bug Fixed - Psd files download failure <Change download type from blob to arraybuffer, which cause low performence>
+ *    Bug Fixed - Psd files download failure <Change download type from blob to arrayBuffer, which cause low performance>
  *    Bug Fixed - Display incorrect on partial download
  *  > 200222
  *    Bug Fixed - Post with '/' cause deep path in zip
@@ -39,7 +39,7 @@
  *    Correct filenames
  *  > 191227
  *    Code Reconstruct
- *    Support downloading of artice
+ *    Support downloading of article
  *    Correct filenames
  *
  *    // 中文注释
@@ -49,7 +49,7 @@
  *    偷懒，以后不加中文注释
  *  > 191226
  *    Support downloading by batch(default: 100 files per batch)
- *    Support donwloading by specific index
+ *    Support downloading by specific index
  *    // 中文注释
  *    新增支持分批下载的功能（默认100个文件一个批次）
  *    新增支持按索引下载的功能
@@ -66,12 +66,16 @@
  *    增加当鼠标中键点击时手动打包
  **/
 
-/* global JSZip GM_xmlhttpRequest */
+/* global JSZip GM_xmlHttpRequest */
 ;(function() {
   'use strict'
+  const apiReference = 'https://api.fanbox.cc';
+  const routes = {
+    user: `${apiReference}/creator.get`,
+    post: `${apiReference}/post.listCreator`,
+  }
 
-  const apiUserUri = 'https://fanbox.pixiv.net/api/creator.get'
-  const apiPostUri = 'https://fanbox.pixiv.net/api/post.listCreator'
+  const creatorName = /[^\/]*?(?=\.)/g.exec(document.URL);
   
   // set style
   GM_addStyle(`
@@ -96,7 +100,7 @@
     constructor(poolSize) {
       this.size = poolSize || 20
       this.running = 0
-      this.waittingTasks = []
+      this.waitingTasks = []
       this.callback = []
       this.tasks = []
       this.counter = 0
@@ -116,7 +120,7 @@
 
     run() {
       if (this.finished) return
-      if (this.waittingTasks.length === 0)
+      if (this.waitingTasks.length === 0)
         if (this.running <= 0) {
           for (let m = 0; m < this.callback.length; ++m)
             this.callback[m] && this.callback[m]()
@@ -124,8 +128,8 @@
         } else return
 
       while (this.running < this.size) {
-        if (this.waittingTasks.length === 0) return
-        let curTask = this.waittingTasks[0]
+        if (this.waitingTasks.length === 0) return
+        let curTask = this.waitingTasks[0]
         curTask.do().then(
           onSucceed => {
             this.running--
@@ -143,14 +147,14 @@
             curTask.err()
           }
         )
-        this.waittingTasks.splice(0, 1)
-        this.tasks.push(this.waittingTasks[0])
+        this.waitingTasks.splice(0, 1)
+        this.tasks.push(this.waitingTasks[0])
         this.running++
       }
     }
 
     add(fn, errFn) {
-      this.waittingTasks.push({ do: fn, err: errFn || (() => {}) })
+      this.waitingTasks.push({ do: fn, err: errFn || (() => {}) })
       this.sum++
       clearTimeout(this.timer)
       this.timer = setTimeout(() => {
@@ -208,7 +212,7 @@
   }
   Zip.MAX_SIZE = 1048576000
 
-  const creatorId = parseInt(document.URL.split('/')[5])
+  let creatorId = creatorName;
   let creatorInfo = null
   let options = {
     start: 1,
@@ -220,34 +224,23 @@
   }
 
   const Text = {
-    batch: '分批 / Batch',
-    download: '点击这里下载',
-    download_en: 'Click to Download',
-    downloading: '下载中...',
-    downloading_en: 'Downloading...',
-    packing: '打包中...',
-    packing_en: 'Packing...',
-    packed: '打包完成',
-    packed_en: 'Packed!',
-    init: '初始化中...',
-    init_en: 'Initilizing...',
-    initFailed: '请求数据失败',
-    initFailed_en: 'Failed to get Data',
-    initFailed_0: '请检查网络',
-    initFailed_0_en: 'check network',
-    initFailed_1: '或Github联系作者',
-    initFailed_1_en: 'or connect at Github',
-    initFinished: '初始化完成',
-    initFinished_en: 'Initilized',
-    start: '起始 / start',
-    end: '结束 / end',
-    thread: '线程 / threads',
-    pack: '手动打包(不推荐)',
-    pack_en: 'manual pack(Not Rcm)',
-    progress: '进度 / Progress',
-    speed: '网速 / speed'
+    batch: 'Batch',
+    download: 'download',
+    downloading: 'Downloading...',
+    packing: 'Packing...',
+    packed: 'Packed!',
+    init: 'Initializing...',
+    initFailed: 'Failed to get Data',
+    initFailed_0: 'check network',
+    initFailed_1: '...',
+    initFinished: 'Initialized',
+    start: 'start',
+    end: 'end',
+    thread: 'threads',
+    pack: 'manual pack (deprecated)',
+    progress: 'Progress',
+    speed: 'speed'
   }
-  const EN_FIX = navigator.language.indexOf('zh') > -1 ? '' : '_en'
 
   let label = null
   const gui = new dat.GUI({
@@ -262,27 +255,27 @@
       downloadByFanboxId(creatorInfo, creatorId)
     },
     pack() {
-      label.name(Text['packing' + EN_FIX])
+      label.name(Text['packing'])
       zip.pack()
-      label.name(Text['packed' + EN_FIX])
+      label.name(Text['packed'])
     }
   }
-  label = gui.add(clickHandler, 'text').name(Text['init' + EN_FIX])
+  label = gui.add(clickHandler, 'text').name(Text['init'])
   let progressCtl = null
 
   let init = async () => {
     let base = unsafeWindow.document.querySelector('#root')
 
     base.appendChild(gui.domElement)
-    uiInited = true
+    uiInitialed = true
 
     try {
       creatorInfo = await getAllPostsByFanboxId(creatorId)
-      label.name(Text['initFinished' + EN_FIX])
+      label.name(Text['initFinished'])
     } catch (e) {
-        label.name(Text['initFailed' + EN_FIX])
-        gui.add(clickHandler, 'text').name(Text['initFailed_0' + EN_FIX])
-        gui.add(clickHandler, 'text').name(Text['initFailed_1' + EN_FIX])
+        label.name(Text['initFailed'])
+        gui.add(clickHandler, 'text').name(Text['initFailed_0'])
+        gui.add(clickHandler, 'text').name(Text['initFailed_1'])
         return
     }
 
@@ -293,8 +286,8 @@
     const endCtl = gui.add(options, 'end', 1, sum, 1).name(Text.end)
     gui.add(options, 'thread', 1, 20, 1).name(Text.thread)
     gui.add(options, 'batch', 10, 5000, 10).name(Text.batch)
-    gui.add(clickHandler, 'download').name(Text['download' + EN_FIX])
-    gui.add(clickHandler, 'pack').name(Text['pack' + EN_FIX])
+    gui.add(clickHandler, 'download').name(Text['download'])
+    gui.add(clickHandler, 'pack').name(Text['pack'])
     endCtl.setValue(sum)
     startCtl.onChange(() => (options.start = options.start > options.end ? options.end : options.start))
     endCtl.onChange(() => (options.end = options.end < options.start ? options.start : options.end ))
@@ -306,7 +299,7 @@
   let amount = 1
   let pool = null
   let progressList = []
-  let uiInited = false
+  let uiInitialed = false
 
   const fetchOptions = {
     credentials: 'include',
@@ -324,18 +317,18 @@
   window.onload = () => {
     init()
     let timer = setInterval(() => {
-      (!uiInited && document.querySelector('.dg.main') === null) ? init() : clearInterval(timer)
+      (!uiInitialed && document.querySelector('.dg.main') === null) ? init() : clearInterval(timer)
     }, 3000)
   }
 
   function gmRequireImage(url, index) {
     return new Promise((resolve, reject) =>
-      GM_xmlhttpRequest({
+      GM_xmlHttpRequest({
         method: 'GET',
         url,
         overrideMimeType: 'application/octet-stream',
         responseType: 'blob',
-        asynchrouns: true,
+        asynchronous: true,
         onload: res => {
           progressList[index] = 1
           setProgress(amount)
@@ -346,11 +339,11 @@
           setProgress(amount)
         },
         onerror: () =>
-          GM_xmlhttpRequest({
+          GM_xmlHttpRequest({
             method: 'GET',
             url,
             overrideMimeType: 'application/octet-stream',
-            responseType: 'arraybuffer',
+            responseType: 'arrayBuffer',
             onload: res => {
               progressList[index] = 1
               setProgress(amount)
@@ -369,7 +362,7 @@
   async function downloadByFanboxId(creatorInfo, creatorId) {
     let processed = 0
     amount = 1
-    label.name(Text['downloading' + EN_FIX])
+    label.name(Text['downloading'])
     progressCtl.setValue(0)
     let { batch, end, start, thread } = options
     options.progress = 0
@@ -380,9 +373,9 @@
     // init pool
     pool = new ThreadPool(thread)
     pool.finish(() => {
-      label.name(Text['packing' + EN_FIX])
+      label.name(Text['packing'])
       zip.pack()
-      label.name(Text['packed' + EN_FIX])
+      label.name(Text['packed'])
     })
 
     // for name exist detect
@@ -520,8 +513,8 @@
   }
 
   async function getAllPostsByFanboxId(creatorId) {
-    // request userinfo
-    const userUri = `${apiUserUri}?userId=${creatorId}`
+    // request userInfo
+    const userUri = `${routes.user}?creatorId=${creatorId}`
     const userData = await (await fetch(userUri, fetchOptions)).json()
     let creatorInfo = {
       cover: null,
@@ -532,7 +525,7 @@
     creatorInfo.name = userData.body.user.name
 
     // request post info
-    let postData = await (await fetch(`${apiPostUri}?userId=${creatorId}&limit=${limit}`, fetchOptions)).json()
+    let postData = await (await fetch(`${routes.post}?creatorId=${creatorId}&limit=${limit}`, fetchOptions)).json()
     creatorInfo.posts.push(...postData.body.items.filter(p => p.body))
     let nextPageUrl = postData.body.nextUrl
     while (nextPageUrl) {
